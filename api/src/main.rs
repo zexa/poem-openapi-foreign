@@ -14,6 +14,7 @@ impl Api {
         }))
     }
 
+    // this doesn't work well because the response isnt marked as nullable
     #[oai(path = "/optional", method = "get")]
     async fn optional(&self) -> Json<Option<Foreign<ForeignType>>> {
         Json(Some(Foreign(ForeignType {
@@ -21,6 +22,7 @@ impl Api {
         })))
     }
 
+    // this doesn't work well because the response isnt marked as nullable
     #[oai(path = "/optional-none", method = "get")]
     async fn optional_none(&self) -> Json<Option<Foreign<ForeignType>>> {
         Json(None)
