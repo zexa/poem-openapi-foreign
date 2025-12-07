@@ -226,6 +226,84 @@ See the `nightly` branch for details.
 | Runtime introspection | ✅ Yes | ❌ No |
 | Compile-time safety | ⚠️ Partial | ✅ Full |
 
+## Future Improvements
+
+### Extracting Doc Comments from External Types
+
+**The Problem:**
+Currently, the library cannot extract doc comments from types because `serde_reflection` only provides runtime structure introspection. However, doc comments ARE preserved in compiled Rust metadata.
+
+**Potential Solution:**
+Use rustdoc's JSON output to extract documentation at build time:
+
+1. **Build Script Approach**:
+   ```rust
+   // build.rs
+   fn main() {
+       // Generate rustdoc JSON for dependencies
+       Command::new("cargo")
+           .args(&["+nightly", "rustdoc", "--",
+                   "-Z", "unstable-options",
+                   "--output-format", "json"])
+           .output()
+           .expect("Failed to generate docs");
+
+       // Parse JSON files to extract:
+       // - Type descriptions
+       // - Field documentation
+       // - Deprecation markers
+
+       // Generate metadata.rs with TypeId -> Docs mapping
+       // Include in build: include!(concat!(env!("OUT_DIR"), "/metadata.rs"));
+   }
+   ```
+
+2. **Query at Registration Time**:
+   ```rust
+   impl<T> Type for Foreign<T> {
+       fn schema_ref() -> MetaSchemaRef {
+           // Look up docs from generated metadata
+           if let Some(description) = get_type_docs::<T>() {
+               // Include in schema
+           }
+           // Fall back to serde_reflection
+       }
+   }
+   ```
+
+**Rustdoc JSON Example:**
+```json
+{
+  "index": {
+    "0": {
+      "name": "ExternalType",
+      "docs": "This is an external type with documentation",
+      "deprecation": null
+    },
+    "1": {
+      "name": "field_name",
+      "docs": "Field documentation",
+      "deprecation": null
+    }
+  }
+}
+```
+
+**Benefits:**
+- ✅ Works for external types from dependencies
+- ✅ Extracts real doc comments without modification
+- ✅ Provides type and field descriptions
+- ✅ Detects deprecation markers
+
+**Challenges:**
+- Requires nightly Rust for JSON output (`-Z unstable-options`)
+- Adds build-time complexity
+- May increase compilation time for large dependency trees
+- Needs to handle multiple crate versions and path resolution
+
+**Current Status:**
+This approach is technically feasible but not yet implemented. Contributions welcome!
+
 ## License
 
 MIT OR Apache-2.0
