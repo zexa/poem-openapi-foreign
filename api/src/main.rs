@@ -1,5 +1,5 @@
 use foreign::ForeignType;
-use jsonwrap::{Foreign, ForeignOpt};
+use jsonwrap::Foreign;
 use poem::{Route, Server, listener::TcpListener};
 use poem_openapi::{OpenApi, OpenApiService, payload::Json};
 
@@ -9,7 +9,7 @@ struct Api;
 impl Api {
     #[oai(path = "/hello", method = "get")]
     async fn hello(&self) -> Json<Foreign<ForeignType>> {
-        Json(Foreign(ForeignType {
+        Json(Foreign::from(ForeignType {
             text: "hello".to_string(),
         }))
     }
@@ -17,7 +17,7 @@ impl Api {
     // this doesn't work well because the response isnt marked as nullable
     #[oai(path = "/optional", method = "get")]
     async fn optional(&self) -> Json<Option<Foreign<ForeignType>>> {
-        Json(Some(Foreign(ForeignType {
+        Json(Some(Foreign::from(ForeignType {
             text: "optional value".to_string(),
         })))
     }
@@ -29,15 +29,15 @@ impl Api {
     }
 
     #[oai(path = "/foreign-opt", method = "get")]
-    async fn foreign_opt(&self) -> Json<ForeignOpt<ForeignType>> {
-        Json(ForeignOpt(Some(ForeignType {
-            text: "using ForeignOpt".to_string(),
+    async fn foreign_opt(&self) -> Json<Foreign<Option<ForeignType>>> {
+        Json(Foreign::from(Some(ForeignType {
+            text: "using Foreign<Option<T>>".to_string(),
         })))
     }
 
     #[oai(path = "/foreign-opt-none", method = "get")]
-    async fn foreign_opt_none(&self) -> Json<ForeignOpt<ForeignType>> {
-        Json(ForeignOpt(None))
+    async fn foreign_opt_none(&self) -> Json<Foreign<Option<ForeignType>>> {
+        Json(Foreign::from(None))
     }
 }
 

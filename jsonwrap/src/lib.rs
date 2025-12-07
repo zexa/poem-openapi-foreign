@@ -1,3 +1,5 @@
+#![feature(specialization)]
+
 use poem_openapi::registry::{MetaSchema, MetaSchemaRef, Registry};
 use poem_openapi::types::{ToJSON, Type};
 use serde::{Serialize, de::DeserializeOwned};
@@ -7,7 +9,12 @@ use serde_reflection::{
 };
 
 pub struct Foreign<T>(pub T);
-pub struct ForeignOpt<T>(pub Option<T>);
+
+impl<T> From<T> for Foreign<T> {
+    fn from(value: T) -> Self {
+        Foreign(value)
+    }
+}
 
 fn leak_str(s: &str) -> &'static str {
     Box::leak(s.to_owned().into_boxed_str())
@@ -220,11 +227,11 @@ fn trace_type<T: DeserializeOwned>() -> Option<SerdeRegistry> {
 }
 
 impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> Type for Foreign<T> {
-    const IS_REQUIRED: bool = true;
+    default const IS_REQUIRED: bool = true;
     type RawValueType = Self;
     type RawElementValueType = Self;
 
-    fn name() -> std::borrow::Cow<'static, str> {
+    default fn name() -> std::borrow::Cow<'static, str> {
         let name = type_name::<T>();
         // For newtype structs, expose the inner type's name
         if let Some(serde_reg) = trace_type::<T>() {
@@ -237,7 +244,7 @@ impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> Type for Foreign<T
         name.into()
     }
 
-    fn schema_ref() -> MetaSchemaRef {
+    default fn schema_ref() -> MetaSchemaRef {
         let name = type_name::<T>();
         // For newtype structs, reference the inner type's schema
         if let Some(serde_reg) = trace_type::<T>() {
@@ -250,7 +257,7 @@ impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> Type for Foreign<T
         MetaSchemaRef::Reference(name)
     }
 
-    fn register(poem_reg: &mut Registry) {
+    default fn register(poem_reg: &mut Registry) {
         let name = type_name::<T>();
         let Some(serde_reg) = trace_type::<T>() else {
             poem_reg.create_schema::<Self, _>(name, |_| MetaSchema {
@@ -291,15 +298,13 @@ impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> Type for Foreign<T
 }
 
 impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> ToJSON for Foreign<T> {
-    fn to_json(&self) -> Option<Value> {
+    default fn to_json(&self) -> Option<Value> {
         serde_json::to_value(&self.0).ok()
     }
 }
 
-impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> Type for ForeignOpt<T> {
+impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> Type for Foreign<Option<T>> {
     const IS_REQUIRED: bool = false;
-    type RawValueType = Self;
-    type RawElementValueType = Self;
 
     fn name() -> std::borrow::Cow<'static, str> {
         Foreign::<T>::name()
@@ -326,19 +331,9 @@ impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> Type for ForeignOp
     fn register(poem_reg: &mut Registry) {
         Foreign::<T>::register(poem_reg);
     }
-
-    fn as_raw_value(&self) -> Option<&Self::RawValueType> {
-        Some(self)
-    }
-
-    fn raw_element_iter<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = &'a Self::RawElementValueType> + 'a> {
-        Box::new(std::iter::once(self))
-    }
 }
 
-impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> ToJSON for ForeignOpt<T> {
+impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> ToJSON for Foreign<Option<T>> {
     fn to_json(&self) -> Option<Value> {
         self.0.as_ref().and_then(|v| serde_json::to_value(v).ok())
     }
