@@ -316,6 +316,7 @@ impl<T: Serialize + DeserializeOwned + Send + Sync + 'static> Type for Foreign<O
         match base_ref {
             MetaSchemaRef::Reference(name) => {
                 MetaSchemaRef::Inline(Box::new(MetaSchema {
+                    title: Some(name.clone()),
                     nullable: true,
                     all_of: vec![MetaSchemaRef::Reference(name)],
                     ..MetaSchema::ANY
